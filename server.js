@@ -1,79 +1,69 @@
 //https://lazy-sneakers-deer.cyclic.app/
 
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
-const Schema = mongoose.Schema;
+const final = require('./final');
+const express = require('express');
+const app = express()
+const port = process.env.PORT || 8080;
+const bodyParser = require('body-parser')
+app.use(bodyParser.urlencoded({ extended: true }))
+
+//use
+app.use((req, res) => {
+    res.send('not found')
+})
 
 
-//define the user schema
-var finalUsers = new Schema({
-    "email" : {
-        "type" : String,
-        "unique" : true 
-    },
-    "password" : String
+//Home route (GET, “/”)
+app.get("/", (req, res) => {
+    res.sendFile(path.join(__dirname,"/finalViews/home.html"));
+});
+
+//GET, “/register”
+app.get('/register', (req, res) => {
+    res.sendFile(path.join(__dirname,"/finalViews/register.html"));
 });
 
 
-let User
-
-//start DB
-exports.startDB = () => {
-    return new Promise( (resolve, reject) => {
-        let db = mongoose.createConnection('mongodb+srv://MelikaHamedani:@senecaweb.61idexv.mongodb.net/?retryWrites=true&w=majority');
-        db.on('error', (err) => {
-            console.log('Cannot connect to Database.')
-            reject(err);
-        });
-        db.once('open', () => {
-            User = db.model('finalUsers', finalUsers);
-            console.log('connection successful.')
-            resolve();
-        });
-    });
-};
-
-//register(user)
-exports.register =  (user) => {
-    return new Promise( (resolve, reject) => {
-        if (user.email == '' || user.password == '') {
-            reject('Error: email or password cannot be empty.')
+//POST, “/register”
+app.post('/register', (req, res) => {
+    final.register(req.body)
+    .then(data => {
+        if (data.email != undefined) {
+            res.send(`${data.email} registered successfully. <br> <a href="/">Go home </a>`)
+        } else {
+            res.send(`Error:${data}`)
         }
-        bcrypt.genSalt(10)
-            .then(salt => bcrypt.hash(user.password, salt))
-            .then(hash => {
-                user.password = hash
-                let newUser = new User(user);
-                newUser.save().then(() => {
-                    resolve(user)}).catch(err => {
-                    if (err.code == 11000) {
-                        reject(`Error: ${user.email} already exists`)
-                    } else {
-                        reject('Error: cannot create the user')
-                    }
-                })
-            })
-            .catch(err => {
-                return reject(err)
-            });
-    });
-};
+    }).catch(err => {
+        res.send(`Error:${err}`)
+    })
+})
 
-//signIn(user)
-exports.signIn = (user) => {
-    return new Promise((resolve, reject) => {
-        User.find({ email: user.email }).then(users => {
-            if (users.length == 0) {
-                return reject(`Unable to find user: ${user.email}`)
-            }
-            bcrypt.compare(user.password, users[0].password).then((res) => {
-                if (res) {
-                    resolve(user)
-                } else {
-                    return reject(`Incorrect password for user ${user.email} `)
-                }
+//GET, “/signIn”
+app.get('/signIn', (req, res) => {
+    res.sendFile(path.join(__dirname,"/finalViews/signIn.html"));
+});
 
-            });
-        }).catch(err => reject(`Cannot find the user: ${user.email} `))
-    });
-};
+//POST, “/signIn”
+app.post('/signin', (req, res) => {
+    final.signIn(req.body)
+    .then(data => {
+        if (data.email) {
+            res.send(`${data.email} signed in successfully.<br><a href="/">Go home </a>`)
+        } else {
+            res.send(`Error:${data}`)
+        }
+    }).catch(err => res.send(`Error: ${err}`))
+})
+
+//404 Error
+app.get("*", (req, res)=>{
+    res.status(404).send("Error 404: page not found.");
+});
+
+//Start the server
+final.startDB().then(() => {
+    app.listen(HTTP_PORT, onHttpStart);
+    console.log("app is listening port 8080")
+}).catch(() => {
+    console.log("Unable to load data");
+});
